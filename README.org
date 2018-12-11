@@ -1,0 +1,4 @@
+* n-puzzle
+
+This is a clojure implementation of a sliding tile puzzle. 
+
