@@ -27,7 +27,7 @@
 
 (def cli-options
   (let [algos ["A*"]
-        heuristics ["manhattan-distance" "euclidian-distance"]] 
+        heuristics ["md" "eu" "md-lc" "eu-lc"]]
     [["-a" "--algorithm ALGORITHM" "Algorithm used"
       :default "A*"
       :validate [(fn [e] (prn e) (some #(= % e) algos)) "This is not a valid algorithm"]]
