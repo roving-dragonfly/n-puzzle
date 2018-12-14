@@ -22,15 +22,36 @@
       true
       :else false)))
 
+;; Never again
 (defn conflicts
   "Returns conflict between 2 vectors"
   [p q]
-  (keys (filter
-          (fn [[k v]] (and (= v 2)
-                           (not= (.indexOf p k) (.indexOf q k))))
-          (frequencies (concat p q)))))
+  (let [shared (keys (filter (fn [[k v]] (= v 2)) (frequencies (concat p q))))
+        all-conflicts (->> (for [tj shared
+                                 tk shared
+                                 :when (not= tj tk)
+                                 :let [tj-pos (.indexOf p tj)
+                                       tk-pos (.indexOf p tk)
+                                       tj-goal (.indexOf q tj)
+                                       tk-goal (.indexOf q tk)]]
+                             (when (and (> tj-pos tk-pos)
+                                        (< tj-goal tk-goal))
+                               [tj tk]))
+                           (remove nil?)
+                           (group-by first)
+                           (map (fn [[k v]] {:k k :c (map second v) :m 0}))
+                           (sort-by #(count (:c %)) >))] all-conflicts
+       (loop [lc 0
+              c all-conflicts]
+         (if-not (seq c)
+           lc
+           (recur (inc lc)
+                  (let [tk (first c)
+                        newc (map (fn [e]
+                                    (if (some #(= (:k e) %) (:c tk))
+                                      (update e :m inc) e)) (rest c))]
+                    (remove #(= 0 (- (count (:c %)) (:m %))) newc)))))))
 
-;; may still be buggy
 (defn linear-conflict
   "Returns a conflict value of a puzzle"
   [puzzle]
@@ -40,25 +61,9 @@
         goal (solved size)
         grows (map vec (partition size goal))
         gcols (apply map vector grows)]
-    (count (flatten (map (fn [n]
-                          (concat
-                           (conflicts (nth rows n) (nth grows n))
-                           (conflicts (nth cols n) (nth gcols n))))
-                        (range size))))))
-
-(defn board-heuristic
-  "Generates heuristic value by comparing every case coord with solved puzzle with h
-  then reducing it"
-  [puzzle h]
-  (let [size (:size puzzle)
-        goal (solved size)]
-    (reduce + (for [y (range size)
-                    x (range size)
-                    :let [case (get (:puzzle puzzle) (+ (* y size) x))
-                          igoal (.indexOf goal case)
-                          [gx gy] [(rem igoal size) (quot igoal size)]]
-                    :when (not= 0 case)]
-                (h [x y] [gx gy])))))
+    (* 2 (reduce + (for [n (range size)]
+                     (+ (conflicts (nth rows n) (nth grows n))
+                        (conflicts (nth cols n) (nth gcols n))))))))
 
 (def euclidian-distance
   "Returns euclidian distance using 2 sets of 2D coords"
@@ -75,14 +80,49 @@
                   (map #(Math/abs %))
                   (reduce +)))))
 
+
+(defn board-heuristic
+  "Generates heuristic value by comparing every case coord with solved puzzle with h
+  then reducing it"
+  [puzzle h & {:keys [lc]}]
+  (let [size (:size puzzle)
+        goal (solved size)
+        dh (reduce + (for [y (range size)
+                        x (range size)
+                        :let [case (get (:puzzle puzzle) (+ (* y size) x))
+                              igoal (.indexOf goal case)
+                              [gx gy] [(rem igoal size) (quot igoal size)]]
+                        :when (not= 0 case)]
+                       (h [x y] [gx gy])))]
+    (if lc (+ (linear-conflict puzzle) dh) dh)))
+
+(def md
+  "Shortcut for manhattan-distance"
+  (fn [puzzle]
+    (board-heuristic puzzle manhattan-distance)))
+
+(def md-lc
+  "Shortcut for manhattan-distance with lc"
+  (fn [puzzle]
+    (board-heuristic puzzle manhattan-distance :lc true)))
+
+(def eu
+  "Shortcut for euclidian-distance"
+  (fn [puzzle]
+    (board-heuristic puzzle euclidian-distance)))
+
+(def eu-lc
+  "Shortcut for euclidian-distance"
+  (fn [puzzle]
+    (board-heuristic puzzle euclidian-distance :lc true)))
+
 (defn A*
   "Finds the shortest path using greedy search with a heuristic function
   assumes the puzzle is solvable"
-  [puzzle heuristic]
+  [puzzle h]
   (let [size (:size puzzle)
         start (:puzzle puzzle)
-        goal (solved size)
-        h  #(board-heuristic {:size size :puzzle %} heuristic)]
+        goal (solved size)]
     (loop [open (p/priority-map start 0)
            frontier []
            closed #{}
@@ -97,7 +137,7 @@
           (let [g (shortest node)
                 moves (remove closed (valid-moves {:size size :puzzle node}))
                 hmoves (for [move moves
-                             :let [hmove (h move)
+                             :let [hmove (h {:size size :puzzle move})
                                    dist (shortest move Double/POSITIVE_INFINITY)]
                              :when (< (inc g) dist)]
                          hmove)]
