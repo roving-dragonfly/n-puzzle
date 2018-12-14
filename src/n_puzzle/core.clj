@@ -19,7 +19,7 @@
   "Prints a solution"
   [solution]
   (println (str "Solution took " (:moves solution) " moves"))
-  (println (str "Frontier expanded to " (apply max (:frontier solution))) "potentials paths")
+  (println  (str "Frontier expanded to " (apply max (:frontier solution))) "potentials paths")
   (println "Solution from initial state to solved state")
   (doseq [puzzle (:solution solution)]
     (print-puzzle {:size (:size solution) :puzzle puzzle})

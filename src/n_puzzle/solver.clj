@@ -22,53 +22,6 @@
       true
       :else false)))
 
-#_(defn distance-heuristic
-    "Generates heuristic value by comparing every case coord with solved puzzle with f
-  then reducing it, returns board-value pair"
-  [puzzle f]
-  (let [size (:size puzzle)
-        goal (solved size)]
-    [(:puzzle puzzle)
-     (reduce + 
-             (for [y (range size)
-                   x (range size)
-                   :let [case (get (:puzzle puzzle) (+ (* y size) x))
-                         goal-index (.indexOf goal case)
-                         [gx gy] [(rem goal-index size) (quot goal-index size)]]
-                   :when (not= 0 case)]
-               (f [x y] [gx gy])))]))
-
-#_(defn A*-old
-  "Finds the shortest path using greedy search with a heuristic function"
-  [puzzle heuristic]
-  (let [size (:size puzzle)
-        start (:puzzle puzzle)
-        goal (solved size)
-        h (memoize #(distance-heuristic {:size size :puzzle %} heuristic))]
-    ;; Priority map on open nodes, for quicker sorted paths
-    ;; Set on closed nodes to avoid duplicates
-    (loop [open (p/priority-map start 1)
-           closed #{}
-           from {}
-           shortest {start 0}]
-      (let [node (peek open)]
-        (cond
-          (nil? node) (prn "No solution")
-          (= (key node) goal) {:size size
-                               :solution
-                               (vec (reverse (take-while (comp not nil?) (iterate from goal))))
-                               :moves (count (vec (reverse (take-while (comp not nil?) (iterate from goal)))))
-                               :traversed (count closed)}
-          :else
-          (let [moves (for [move (remove closed (valid-moves {:size size :puzzle (key node)}))
-                            :let [hmove (h move)
-                                  dist (shortest (first hmove) Double/POSITIVE_INFINITY)]
-                            :when (< (second hmove) dist)]
-                        hmove)]
-            (recur (into (dissoc open (key node)) moves)
-                   (conj closed (key node))
-                   (into from (map #(assoc % 1 (key node)) moves))
-                   (into shortest (map #(assoc % 1 (inc (get shortest (key node)))) moves)))))))))
 (defn conflicts
   "Returns conflict between 2 vectors"
   [p q]
