@@ -2,3 +2,4 @@
 
 This is a clojure implementation of a sliding tile puzzle. 
 
+Paper documenting the linear-conflict algorithm is in doc.
